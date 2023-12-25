@@ -1,0 +1,350 @@
+---
+title: "STAT 2450: Assignment 7"
+author: B00841761
+date: 
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+
+## Evaluation
+
+Total of 32 points (this total score will be rescaled for final mark in order to reflect the equal weight of each assignment).
+
+## Library
+
+You will only need this library:
+
+```{r}
+library(randomForest)
+
+```
+
+
+## Prepare the data
+
+You will use a dataset that contains records of passengers of the Titanic. 
+
+Load the data. Run this code to prepare a raw dataframe  called 'mytitanic'.
+
+
+```{r}
+mytrain0 = read.csv("https://mathstat.dal.ca/~fullsack/DATA/titanictrain.csv")
+mytest0 = read.csv("https://mathstat.dal.ca/~fullsack/DATA/titanictest.csv")
+mytitanic = rbind(mytest0,mytrain0)
+nrec=nrow(mytitanic)
+nrec
+```
+
+You will be using the column 'Survived' as the outcome in our models. This should be treated as a factor.
+All other columns are admissible as predictors of this outcome.
+
+HINT-1: you can use the following template to split the data into folds, e.g. for cross-validation.
+
+```{}
+Randomly shuffle your data
+yourData<-yourData[sample(nrow(yourData)),]
+
+Create an index array for 10 folds of equal size:
+myfolds <- cut(seq(1,nrow(yourData)),breaks=10,labels=FALSE)
+
+use these folds for cross-validation
+
+for(i in 1:10){ # loop over each of 10 folds
+
+recover the indexes of fold i  and define the indexes of the test set
+
+    testIndexes <- which(myfolds==i,arr.ind=TRUE)
+	  define your test  for this fold
+    testData <- yourData[testIndexes, ]
+	  define your training set for this fold as the complement
+    trainData <- yourData[-testIndexes, ]
+    
+}
+
+
+
+```
+
+
+HINT-2: Use the following template to split data into a train and a test set of roughly the same size
+
+
+```{}
+
+set.seed(44182) # or use the recommended seed
+trainindex=sample(1:nrec,nrec/2,replace=F)
+mytrain=mydata[trainindex,] # training set
+mytest=mydata[-trainindex,] # testing set =  complementary subset of mydata
+
+```
+
+
+## Question 1 [2 pts] 
+
+Set the random seed to 1234.
+Define 5 folds of equal size of 'mytitanic' in an array called 'myfolds'. To do this, first permute the rows of the dataframe mytitanic, then create the array 'myfolds'. This array should contain first a series of 1, then a series of 2, etc. An integer at position i represents the fold number of record number i. There should be approximately the same number of records in each of the five folds (folds should be balanced).
+
+
+```{r}
+set.seed(1234)
+mytitanic<-mytitanic[sample(nrow(mytitanic)),]
+
+mytitanic$Sex = as.factor(mytitanic$Sex)
+mytitanic$Embarked = as.factor(mytitanic$Embarked)
+mytitanic$Title = as.factor(mytitanic$Title)
+mytitanic$FamilySize = as.factor(mytitanic$FamilySize)
+mytitanic$Survived = as.factor(mytitanic$Survived)
+
+myfolds <- cut(seq(1,nrow(mytitanic)),breaks=5,labels=FALSE)
+
+```
+
+
+## Question 2 [2 pts] 
+
+Create an array named 'textIndexes' that selects all the position of 'myfolds' that are in fold number 2.
+
+Use this array  to extract two dataframes from mytitanic: a  testing 
+dataframe named 'mytest' and a traning dataframe named 'mytrain'.
+
+These dataframes constitute a split of the mytitanic dataframe.
+
+```{r}
+#recover the indexes of fold i  and define the indexes of the test set
+
+    textIndexes <- which(myfolds==2,arr.ind=TRUE)
+      #define your test  for this fold
+    mytest <- mytitanic[textIndexes, ]
+      #define your training set for this fold as the complement
+    mytrain <- mytitanic[-textIndexes, ]
+```
+
+
+## Question 3 [2 pts] 
+
+set the random seed to 375.
+Use the proper function from the 'randomForest' library to fit a random forest model to the 'mytrain' dataset. Use the column 'Survived' as the outcome and all other variables as predictors. Make sure that 'Survived' is treated as a factor. Make sure that your call requires the calculation of importance, 
+
+Make sure that your fitted object is called 'myclassifier'.
+
+```{r}
+library(randomForest)
+set.seed(375)
+mytrain$Survived=as.factor(mytrain$Survived)
+myclassifier=randomForest(Survived~.,data=mytrain, mtry=5,importance=T)
+```
+
+
+## Question 4 [6 pts] 
+
+Print the object 'myclassifier'.
+
+Plot the result of the fitting (this should produce a plot of out-of-bag errors).
+
+Has the OOB error rate roughly equilibrated with 50 trees?, 100 trees?, 500 trees? (2 points)
+
+ANS: The OOB rate is roughly at equilibrium with 50, 100 and 500 trees. 
+
+What is the stationary value of the OOB error rate?  (2 points)
+
+ANS: 0.1781
+
+Which of death or survival has the smallest prediction error? (2 points)
+
+ANS: Survival has the smaller prediction error.
+  
+Use the abline function to overlay on the plot a red horizontal line that has a y value equal to the  OOB error rate mentioned in the print of 'myclassifier'.
+
+
+```{r}
+
+myclassifier
+plot(myclassifier)
+
+abline(h=0.1781, col="red")
+```
+
+
+## Question 5 [2 pts] 
+
+Use the 'predict' function to calculate the predictions on the 'mytest' data. Save the prediction in an object called 'y_pred'.
+MAKE SURE, when you define the value of argument newdata, to use the 'mytest' dataframe with the exception of its column named 'Survived'. (otherwise we would predict Survived from Survived, which would not make sense!).
+
+Print a confusion table that compares the predicted object 'y_pred' to the true labels (column Survived of the mytest dataframe). Compute the misclassification error and the prediction accuracy (use 'paste' and round the accuracy to 4 digits).
+
+```{r}
+
+y_pred = predict(myclassifier, newdata = mytest, subset="Survived")
+cmatrix = table(y_pred, mytest$Survived)
+cmatrix
+
+paste("Misclassification error", round(cmatrix[1,2]+cmatrix[2,1]/sum(cmatrix),4))
+paste("Prediction accuracy", round(cmatrix[1,1]+cmatrix[2,2]/sum(cmatrix),4))
+
+```
+
+
+
+## Question 6 [2 pts] 
+
+Print and plot the importance of predictors.
+
+```{r}
+importance(myclassifier)
+varImpPlot(myclassifier)
+```
+
+
+## Question 7 [6 pts]
+
+Let's have a closer look at the predictors for the records in 'mytest'.
+
+Tabulate the chances of survival by the column 'Title'. What do you conclude? (2 points)
+
+ANS: We conclude that there are 5 columns, most of them have the title Mr.
+
+```{r}
+table(mytitanic$Title)
+```
+
+Tabulate Title against Sex (2 points)
+
+```{r}
+table(mytitanic$Title, mytitanic$Sex)
+```
+
+Are the Title and the Sex predictors independent? (1 point)
+
+ANS: The title and sex predictors are dependent.
+
+Tabulate Sex and Survived. Which Sex has the highest chance of survival?
+
+ANS: Female
+
+```{r}
+table(mytitanic$Sex, mytitanic$Survived)
+
+```
+
+
+```{r}
+rm(mytrain,mytest)
+```
+
+
+## Question 8 [2 pts] 
+
+Complete the code of the following function. The function should return a vector of nrep classification accuracies for nrep random splits into a training and testing sets.
+
+Each training set should roughly contain  half the number of records in the dataset 'mytitanic'.  
+
+```{r}
+dotitan <- function(nrep,ntree,mtry){
+set.seed(128)
+acc = c()
+for(i in 1:nrep){
+
+rm(mytrain,mytest)
+nrec=nrow(mytitanic)
+
+#define a training set of size nrec/2 if nrec is even or (nrec+1)/2 if nrec is odd
+ntrain=nrec/2
+train = sample(1:nrec,ntrain,replace=F)
+mytrain=mytitanic[train,]
+
+# Fit a Random Forest Classification to the Training set, using ntree trees and mtry predictors
+rf=randomForest(Survived~., data=mytrain,mtry=mtry,ntree=ntree,importance=T)
+mytest=mytitanic[-train,]
+
+# Predict the response on the testing set
+pred = predict(rf, newdata=mytest)
+
+# tabulate the prediction accuracy  ( Confusion matrix )
+t = table(pred,mytest$Survived)
+
+# compute the misclassification error 
+err = (t[1,2]+t[2,1])/sum(t)
+
+# compute the classification accuracy
+acc = c(acc, 1-err)
+
+}
+
+# return the classification accuracy
+return (acc)
+
+}
+
+```
+
+
+```{r}
+
+```
+
+
+
+## Question 9 [4 pts]
+
+Run the function above with 100 replicates, 500 trees per fit and 4 variables per random forest node. (2 points)
+
+Compute the mean accuracy and plot the histogram. Is the prediction performance of random forest highly variable?  (2 points)
+
+
+```{r}
+
+acc = dotitan(100, 500, 4)
+paste("Mean accuracy", mean(acc))
+hist(acc)
+```
+
+
+## Question 10 [4 pts]
+
+Now a different exercise. We know that the random forest algorithm is a RANDOMIZED algorithm. This implies that it will give different answers each time we rerun it. We want to prepare ONE test-train split, and use the same data several times (i.e. refit the random forest model) to see how variable the results are.
+
+Prepare a test-train split of the 'mytitanic' dataframe (use half the number of record for training) (1 point)
+
+Call your dataframes 'mytrain' and 'mytest'.
+
+```{r}
+ntrain=nrec/2;
+train=sample(1:nrec,ntrain,replace=F)
+mytrain = mytitanic[train,]
+mytest = mytitanic[-train,]
+
+```
+
+
+Now create a for loop and use it to run 50 replicates of a random forest fit. In the body of the loop, you will use the training  set for fitting, and the testing set for the calculation of the confusion table and testing error. You can reuse code written in previous questions if you wish. Make sure that you save each test prediction accuracy in an array named 'acc'. Keep 4 digits for each testing accuracy. (2 points)
+
+
+```{r}
+acc = c()
+for (i in 1:50){
+  rf=randomForest(Survived~., data=mytrain,importance=T)
+  
+  # Predict the response on the testing set
+  pred = predict(rf, newdata=mytest)
+  
+  # tabulate the prediction accuracy  ( Confusion matrix )
+  t = table(pred,mytest$Survived)
+  
+  # compute the misclassification error 
+  err = round((t[1,2]+t[2,1])/sum(t),4)
+  
+  # compute the classification accuracy
+  acc = c(acc, 1-err)
+}
+```
+
+Now, plot a histogram of the 'acc' array and the sample mean function to calculate the mean accuracy. Does the accuracy vary a lot between replicate fits on the same test-train split? (1 point)
+
+```{r}
+paste("Mean accuracy", round(mean(acc),4))
+hist(acc)
+```
+
